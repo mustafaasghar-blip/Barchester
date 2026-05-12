@@ -1064,11 +1064,8 @@
     }
 
     async function updateUIForAuth() {
-      // Check current Supabase session
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session && session.user) {
-        currentUser = session.user;
+      if (currentUser) {
+        // User is logged in
         publicSection.classList.remove('hidden');
         userSection.classList.remove('hidden');
         signupBtn.classList.add('hidden');
@@ -1076,9 +1073,9 @@
         logoutBtn.classList.remove('hidden');
         enclaveLink.classList.remove('hidden');
         userEmailDisplay.classList.remove('hidden');
-        userEmailDisplay.textContent = session.user.email;
+        userEmailDisplay.textContent = currentUser.email || 'User';
       } else {
-        currentUser = null;
+        // User is logged out
         publicSection.classList.remove('hidden');
         userSection.classList.add('hidden');
         signupBtn.classList.remove('hidden');
@@ -1153,6 +1150,7 @@
           
           if (data.user && data.session) {
             // Auto-login after signup (if email confirmation is disabled)
+            currentUser = data.user;
             closeModal();
             await updateUIForAuth();
             showPopup('✅ Account created! Welcome to Al Madrassa al Barchesteriya.');
@@ -1170,6 +1168,7 @@
           
           if (error) throw error;
           
+          currentUser = data.user;
           closeModal();
           await updateUIForAuth();
           showPopup('✅ Logged in successfully. Access the Student Enclave below.');
@@ -1187,6 +1186,7 @@
       if (error) {
         showPopup('❌ Error logging out.', true);
       } else {
+        currentUser = null;
         await updateUIForAuth();
         showPopup('👋 Logged out. You now have public access only.');
       }
@@ -1255,17 +1255,23 @@
       }
     });
 
-    // Listen for auth state changes
+    // Listen for auth state changes (handles session persistence)
     supabase.auth.onAuthStateChange(async (event, session) => {
-      await updateUIForAuth();
-      
-      if (event === 'SIGNED_IN') {
-        showPopup('✅ Welcome back! Access the Student Enclave below.');
+      if (session && session.user) {
+        currentUser = session.user;
+      } else {
+        currentUser = null;
       }
+      await updateUIForAuth();
     });
 
     // ============ INITIALIZATION ============
     async function initialize() {
+      // Restore session on page load
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && session.user) {
+        currentUser = session.user;
+      }
       await updateUIForAuth();
       aiChatWindow.classList.remove('active');
     }
